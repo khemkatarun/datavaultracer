@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Data Vault Racer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10 and IE 11 */
+            user-select: none; /* Standard syntax */
+            touch-action: manipulation; /* Prevent zoom on double-tap */
+        }
+        
+        /* Game Area */
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e; /* Dark blue/purple */
+            overflow: hidden;
+            border-left: 2px dashed #2a2a4e;
+            border-right: 2px dashed #2a2a4e;
+        }
+
+        /* Lanes */
+        .lane {
+            position: absolute;
+            height: 100%;
+            width: 33.33%;
+            border-right: 2px dashed #2a2a4e;
+        }
+        .lane:nth-child(1) { left: 0; }
+        .lane:nth-child(2) { left: 33.33%; }
+        .lane:nth-child(3) { left: 66.66%; border-right: none; }
+
+        /* Player (Buggy) */
+        #player {
+            position: absolute;
+            /* left: 0; */ /* <-- REMOVED */
+            bottom: 10%;
+            width: 50px;
+            height: 50px;
+            transition: left 0.1s ease-out; /* <-- CHANGED from transform */
+            will-change: left; /* <-- CHANGED from transform */
+            z-index: 10;
+        }
+
+        /* Game Items */
+        .item {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            will-change: transform;
+            z-index: 5;
+        }
+        
+        .gem {
+            background-color: #00ffff;
+            border-radius: 8px;
+            box-shadow: 0 0 15px #00ffff;
+        }
+        
+        .corruptor {
+            background-color: #ff0055;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #ff0055;
+            transform: rotate(45deg); /* Make it spiky-ish */
+        }
+        
+        /* Corruptor Warning Arrow */
+        .warning-arrow {
+            position: absolute;
+            top: 10px;
+            font-size: 2rem;
+            color: #ff0055;
+            animation: pulse-warning 0.5s infinite alternate;
+            z-index: 20;
+        }
+
+        @keyframes pulse-warning {
+            from { opacity: 0.5; }
+            to { opacity: 1; }
+        }
+
+        /* Save Button */
+        #save-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: #28a745;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 600;
+            border: 4px solid white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 100;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        #save-button:active {
+            transform: scale(0.95);
+        }
+        #save-button:disabled {
+            background-color: #555;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        /* Message Box */
+        #message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 1rem 2rem;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 12px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            z-index: 200;
+            transition: opacity 0.5s ease-out;
+        }
+
+        /* Modal */
+        .modal {
+            background: rgba(26, 26, 46, 0.95);
+            border-top: 4px solid #00ffff;
+        }
+        
+        .btn-upgrade {
+            transition: all 0.2s ease;
+        }
+        
+        .btn-upgrade:disabled {
+            background-color: #333 !important;
+            color: #777 !important;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .btn-upgrade:disabled .cost {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white overflow-hidden h-screen w-screen">
+
+    <div id="game-container" class="relative w-full h-full max-w-lg mx-auto bg-black flex flex-col">
+
+        <!-- Header: Scores -->
+        <header class="w-full bg-gray-900 p-4 z-50 shadow-lg">
+            <div class="flex justify-between items-center">
+                <div class="text-left">
+                    <div class="text-sm font-bold text-green-400 uppercase">VAULT</div>
+                    <div id="vault-score" class="text-3xl font-black text-green-300">0</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm font-bold text-gray-400 uppercase">Level</div>
+                    <div id="level-display" class="text-3xl font-black">1</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-bold text-gray-400 uppercase">Time</div>
+                    <div id="timer-display" class="text-3xl font-black">60</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Game Area -->
+        <main id="game-area" class="flex-1">
+            <div class="lane"></div>
+            <div class="lane"></div>
+            <div class="lane"></div>
+
+            <!-- Player -->
+            <div id="player">
+                <svg viewBox="0 0 100 100" fill="#31f7f7">
+                    <path d="M50 10 L90 90 L60 80 L40 80 L10 90 Z" stroke="#FFFFFF" stroke-width="5"/>
+                </svg>
+            </div>
+            
+            <!-- Warning Arrow -->
+            <div id="warning-arrow" class="warning-arrow hidden">▼</div>
+        </main>
+
+        <!-- Footer: Cart Score -->
+        <footer class="w-full bg-gray-900 p-4 z-50 text-center shadow-inner">
+            <div class="text-sm font-bold text-yellow-400 uppercase">CART</div>
+            <div id="cart-score" class="text-4xl font-black text-yellow-300">0</div>
+        </footer>
+
+        <!-- SAVE Button -->
+        <button id="save-button">
+            <!-- Cloud Icon -->
+            <svg class_="" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+                <polyline points="16 16 12 12 8 16"></polyline>
+            </svg>
+        </button>
+
+        <!-- Message Box (for "CRASH!") -->
+        <div id="message-box" class="hidden opacity-0"></div>
+
+        <!-- Modals Overlay -->
+        <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-150">
+            
+            <!-- Start Menu -->
+            <div id="start-menu-modal" class="modal text-center p-8 rounded-lg shadow-2xl w-11/12 max-w-sm">
+                <h1 class="text-4xl font-black text-cyan-300 mb-4">Data Vault Racer</h1>
+                <p class="text-lg mb-6">Catch <span class="text-cyan-300">Gems</span>. Dodge <span class="text-red-500">Corruptors</span>.</p>
+                <p class="text-md mb-8">Press <span class="text-green-400">SAVE</span> to move your <span class="text-yellow-300">CART</span> points to your <span class="text-green-300">VAULT</span>. If you crash, you lose all points in your CART!</p>
+                <button id="start-game-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-4 px-6 rounded-lg text-2xl transform hover:scale-105 transition-transform">Start Game</button>
+            </div>
+
+            <!-- Shop Modal -->
+            <div id="shop-modal" class="modal p-6 rounded-lg shadow-2xl w-11/12 max-w-sm hidden">
+                <h2 class="text-3xl font-black text-cyan-300 mb-2">Level <span id="shop-level-display">1</span> Complete!</h2>
+                <p class="text-lg mb-4">Spend your <span class="text-green-300">VAULT</span> points!</p>
+                <p class="text-xl mb-4 font-bold">Next level in: <span id="shop-timer">15</span>s</p>
+                
+                <div class="space-y-3">
+                    <!-- Speed Upgrades -->
+                    <h3 class="font-bold text-yellow-300 uppercase">Speed Upgrades</h3>
+                    <button id="upgrade-fastEngine" class="btn-upgrade w-full bg-yellow-500 text-gray-900 font-bold p-3 rounded-lg flex justify-between items-center">
+                        <span>Faster Engine</span>
+                        <span class="cost bg-gray-900 text-yellow-300 py-1 px-3 rounded-full text-sm">200</span>
+                    </button>
+                    <button id="upgrade-biggerScoop" class="btn-upgrade w-full bg-yellow-500 text-gray-900 font-bold p-3 rounded-lg flex justify-between items-center">
+                        <span>Bigger Scoop (20 pts)</span>
+                        <span class="cost bg-gray-900 text-yellow-300 py-1 px-3 rounded-full text-sm">400</span>
+                    </button>
+                    <button id="upgrade-gemMagnet" class="btn-upgrade w-full bg-yellow-500 text-gray-900 font-bold p-3 rounded-lg flex justify-between items-center">
+                        <span>Gem Magnet</span>
+                        <span class="cost bg-gray-900 text-yellow-300 py-1 px-3 rounded-full text-sm">600</span>
+                    </button>
+
+                    <!-- Backup Upgrades -->
+                    <h3 class="font-bold text-green-300 uppercase pt-3">Backup Upgrades</h3>
+                    <button id="upgrade-fastSave" class="btn-upgrade w-full bg-green-500 text-gray-900 font-bold p-3 rounded-lg flex justify-between items-center">
+                        <span>Fast Save (1.5s)</span>
+                        <span class="cost bg-gray-900 text-green-300 py-1 px-3 rounded-full text-sm">200</span>
+                    </button>
+                    <button id="upgrade-shield" class="btn-upgrade w-full bg-green-500 text-gray-900 font-bold p-3 rounded-lg flex justify-between items-center">
+                        <span>Shield (1 per level)</span>
+                        <span class="cost bg-gray-900 text-green-300 py-1 px-3 rounded-full text-sm">400</span>
+                    </button>
+                    <button id="upgrade-warningSystem" class="btn-upgrade w-full bg-green-500 text-gray-900 font-bold p-3 rounded-lg flex justify-between items-center">
+                        <span>Warning System</span>
+                        <span class="cost bg-gray-900 text-green-300 py-1 px-3 rounded-full text-sm">600</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Game Over Modal -->
+            <div id="game-over-modal" class="modal text-center p-8 rounded-lg shadow-2xl w-11/12 max-w-sm hidden">
+                <h1 class="text-4xl font-black text-cyan-300 mb-4">Game Over!</h1>
+                <p class="text-lg mb-2">Your final score is:</p>
+                <div id="final-score" class="text-6xl font-black text-green-300 mb-8">0</div>
+                <p class="text-md mb-8">You learned the value of backing up your data (to the VAULT)!</p>
+                <button id="play-again-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-4 px-6 rounded-lg text-2xl transform hover:scale-105 transition-transform">Play Again</button>
+            </div>
+
+            <!-- Crash Modal -->
+            <div id="crash-modal" class="modal text-center p-8 rounded-lg shadow-2xl w-11/12 max-w-sm hidden">
+                <h1 class="text-4xl font-black text-red-500 mb-4">CRASH!</h1>
+                <p class="text-lg mb-2">You lost</p>
+                <div id="lost-score-display" class="text-6xl font-black text-yellow-300 mb-6">0</div>
+                <p class="text-md mb-8">points from your CART because you didn't SAVE them to the VAULT! BackupDR allows you to create rules to save to VAULT automativally.</p>
+                <button id="continue-game-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-4 px-6 rounded-lg text-2xl transform hover:scale-105 transition-transform">Continue</button>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script type="module">
+        // --- DOM Elements ---
+        const gameArea = document.getElementById('game-area');
+        const player = document.getElementById('player');
+        const vaultScoreEl = document.getElementById('vault-score');
+        const cartScoreEl = document.getElementById('cart-score');
+        const levelDisplay = document.getElementById('level-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const saveButton = document.getElementById('save-button');
+        const messageBox = document.getElementById('message-box');
+        
+        // Modals
+        const modalOverlay = document.getElementById('modal-overlay');
+        const startMenuModal = document.getElementById('start-menu-modal');
+        const shopModal = document.getElementById('shop-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const crashModal = document.getElementById('crash-modal');
+        
+        // Modal Buttons
+        const startGameButton = document.getElementById('start-game-button');
+        const playAgainButton = document.getElementById('play-again-button');
+        const continueGameButton = document.getElementById('continue-game-button');
+        const shopTimerEl = document.getElementById('shop-timer');
+        const shopLevelDisplay = document.getElementById('shop-level-display');
+        
+        // Warning Arrow
+        const warningArrow = document.getElementById('warning-arrow');
+
+        // --- Game State ---
+        let vaultScore = 0;
+        let cartScore = 0;
+        let currentLevel = 1;
+        const maxLevels = 3;
+        let levelTimer = 60;
+        let shopTimer = 15;
+        let playerLane = 1; // 0 = left, 1 = center, 2 = right
+        let items = []; // { id, element, type, lane, y, warning }
+        let nextItemId = 0;
+        let saveCooldown = 0; // in seconds
+        let shieldUsedThisLevel = false;
+        let gameState = 'start_menu'; // 'start_menu', 'racing', 'shop', 'game_over', 'paused_crash'
+        let lastTimestamp = 0;
+        let spawnTimer = 0;
+
+        // --- Game Config ---
+        const config = {
+            playerSpeed: 100, // Not used, instant lane change
+            itemSpeed: 350, // base speed pixels/sec
+            spawnRate: 0.9, // base rate in seconds
+            gemValue: 10,
+            saveCooldownTime: 3, // seconds
+            upgrades: {
+                fastEngine: false,
+                biggerScoop: false,
+                gemMagnet: false,
+                fastSave: false,
+                shield: false,
+                warningSystem: false
+            },
+            upgradeCosts: {
+                fastEngine: 200,
+                biggerScoop: 400,
+                gemMagnet: 600,
+                fastSave: 200,
+                shield: 400,
+                warningSystem: 600
+            }
+        };
+
+        // --- Game Loop ---
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) {
+                lastTimestamp = timestamp;
+            }
+            const deltaTime = (timestamp - lastTimestamp) / 1000; // seconds
+            lastTimestamp = timestamp;
+
+            if (gameState === 'racing') {
+                updateRacing(deltaTime);
+            } else if (gameState === 'shop') {
+                updateShopTimer(deltaTime);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Game Logic ---
+        function updateRacing(deltaTime) {
+            // Update Timers
+            levelTimer -= deltaTime;
+            spawnTimer -= deltaTime;
+            
+            if (saveCooldown > 0) {
+                saveCooldown -= deltaTime;
+                saveButton.textContent = Math.ceil(saveCooldown);
+                if (saveCooldown <= 0) {
+                    saveButton.disabled = false;
+                    saveButton.innerHTML = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><polyline points="16 16 12 12 8 16"></polyline></svg>`;
+                }
+            }
+
+            // End level
+            if (levelTimer <= 0) {
+                timerDisplay.textContent = 0;
+                if (currentLevel < maxLevels) {
+                    openShop();
+                } else {
+                    gameOver();
+                }
+                return;
+            }
+
+            timerDisplay.textContent = Math.ceil(levelTimer);
+
+            // Spawn Items
+            if (spawnTimer <= 0) {
+                spawnItem();
+                spawnTimer = config.spawnRate / (1 + (currentLevel - 1) * 0.5); // Increase spawn rate per level
+            }
+
+            // Update Items
+            const gameHeight = gameArea.clientHeight;
+            const playerY = gameHeight * 0.8; // Player's effective Y position
+            const itemSpeed = config.itemSpeed * (1 + (currentLevel - 1) * 0.3); // Increase speed per level
+
+            items.forEach((item, index) => {
+                item.y += itemSpeed * deltaTime;
+                
+                // Show warning if enabled
+                if (item.type === 'corruptor' && config.upgrades.warningSystem && !item.warning && item.y > -50) {
+                    showWarning(item.lane);
+                    item.warning = true; // Only show once
+                }
+
+                item.element.style.transform = `translateY(${item.y}px)`;
+
+                // Collision Detection
+                if (item.y > playerY && item.y < playerY + 50 && item.lane === playerLane) {
+                    if (item.type === 'gem') {
+                        collectGem(item);
+                    } else {
+                        hitCorruptor(item);
+                    }
+                    removeItem(item, index);
+                }
+                // Remove off-screen items
+                else if (item.y > gameHeight) {
+                    removeItem(item, index);
+                }
+            });
+        }
+
+        function spawnItem() {
+            const type = Math.random() > 0.4 ? 'gem' : 'corruptor'; // 60% gems, 40% corruptors
+            const lane = Math.floor(Math.random() * 3);
+            const id = nextItemId++;
+
+            const itemElement = document.createElement('div');
+            itemElement.className = `item ${type}`;
+            itemElement.style.left = `${lane * 33.33 + 16.66}%`; // Center in lane
+            itemElement.style.transform = 'translate(-50%, -50px)';
+            itemElement.style.top = '0';
+            
+            const item = { id, element: itemElement, type, lane, y: -50, warning: false };
+            
+            // Apply Gem Magnet upgrade
+            if (type === 'gem' && config.upgrades.gemMagnet) {
+                // This is a simple implementation: just spawn gems in the player's lane
+                item.lane = playerLane;
+                itemElement.style.left = `${playerLane * 33.33 + 16.66}%`;
+            }
+
+            items.push(item);
+            gameArea.appendChild(itemElement);
+        }
+
+        function removeItem(item, index) {
+            items.splice(index, 1);
+            item.element.remove();
+        }
+
+        function collectGem(item) {
+            cartScore += config.upgrades.biggerScoop ? 20 : config.gemValue;
+            updateScores();
+        }
+
+        function hitCorruptor(item) {
+            if (config.upgrades.shield && !shieldUsedThisLevel) {
+                shieldUsedThisLevel = true;
+                showMessage("SHIELD USED!", "green");
+            } else {
+               const lostScore = cartScore; // <-- Store the lost score
+               cartScore = 0;
+               updateScores();
+               
+               gameState = 'paused_crash'; // <-- Pause the game
+               document.getElementById('lost-score-display').textContent = lostScore; // <-- Show lost score in modal
+               showModal(crashModal); // <-- Show the new crash modal
+
+                gameArea.style.backgroundColor = '#5a1a2e'; // Flash red
+                setTimeout(() => { gameArea.style.backgroundColor = '#1a1a2e'; }, 200);
+            }
+        }
+
+        function showWarning(lane) {
+            warningArrow.style.left = `${lane * 33.33 + 16.66}%`; // Center in lane
+            warningArrow.style.transform = 'translateX(-50%)';
+            warningArrow.classList.remove('hidden');
+            setTimeout(() => {
+                warningArrow.classList.add('hidden');
+            }, 500); // Show warning for 0.5s
+        }
+
+        // --- Player Movement ---
+        function setPlayerPosition(newLane) {
+            if (gameState !== 'racing' || newLane === playerLane) return; // No change or not playing
+
+            playerLane = newLane;
+            
+            // Apply Fast Engine upgrade
+            const transitionTime = config.upgrades.fastEngine ? 0.05 : 0.1;
+            player.style.transition = `left ${transitionTime}s ease-out`; // <-- CHANGED from transitionDuration
+            
+            const laneCenter = playerLane * 33.33 + 16.66;
+            player.style.left = `calc(${laneCenter}% - 25px)`; // <-- CHANGED from transform
+        }
+
+        function movePlayer(direction) {
+            if (gameState !== 'racing') return;
+            let newLane = playerLane;
+            if (direction === 'left') {
+                newLane = Math.max(0, playerLane - 1);
+            } else if (direction === 'right') {
+                newLane = Math.min(2, playerLane + 1);
+            }
+            setPlayerPosition(newLane);
+        }
+
+        function handleGameAreaInteraction(clientX) {
+            if (gameState !== 'racing') return;
+            const rect = gameArea.getBoundingClientRect();
+            const clickX = clientX - rect.left; // Use the provided clientX
+            const gameWidth = gameArea.clientWidth;
+            const laneWidth = gameWidth / 3;
+
+            let targetLane;
+            if (clickX < laneWidth) {
+                targetLane = 0; // Left lane
+            } else if (clickX < laneWidth * 2) {
+                targetLane = 1; // Center lane
+            } else {
+                targetLane = 2; // Right lane
+            }
+            setPlayerPosition(targetLane);
+        }
+
+        // --- UI & State Functions ---
+        function updateScores() {
+            vaultScoreEl.textContent = vaultScore;
+            cartScoreEl.textContent = cartScore;
+        }
+
+        function saveCartToVault() {
+            if (saveCooldown > 0) return;
+
+            vaultScore += cartScore;
+            cartScore = 0;
+            updateScores();
+
+            saveCooldown = config.upgrades.fastSave ? 1.5 : config.saveCooldownTime;
+            saveButton.disabled = true;
+            saveButton.textContent = Math.ceil(saveCooldown);
+        }
+        
+        function showMessage(text, color) {
+            messageBox.textContent = text;
+            messageBox.style.color = color;
+            messageBox.classList.remove('hidden');
+            messageBox.style.opacity = 1;
+
+            setTimeout(() => {
+                messageBox.style.opacity = 0;
+                setTimeout(() => messageBox.classList.add('hidden'), 500);
+            }, 1000);
+        }
+        
+        function showModal(modalElement) {
+            modalOverlay.classList.remove('hidden');
+           [startMenuModal, shopModal, gameOverModal, crashModal].forEach(m => m.classList.add('hidden'));
+            modalElement.classList.remove('hidden');
+        }
+
+        function hideModals() {
+            modalOverlay.classList.add('hidden');
+        }
+
+        function startGame() {
+            gameState = 'paused'; // Paused until level starts
+            vaultScore = 0;
+            cartScore = 0;
+            currentLevel = 1;
+            playerLane = 1; // Reset logical lane
+            
+            // --- FIX: Visually reset the player to the center lane ---
+            const laneCenter = playerLane * 33.33 + 16.66;
+            player.style.transition = 'none'; // Snap to position
+            player.style.left = `calc(${laneCenter}% - 25px)`; // <-- CHANGED from transform
+            // Restore animation duration for gameplay
+            setTimeout(() => {
+                 const transitionTime = config.upgrades.fastEngine ? 0.05 : 0.1;
+                 player.style.transition = `left ${transitionTime}s ease-out`; // <-- CHANGED
+            }, 50);
+            // --- END FIX ---
+            
+            // Reset upgrades
+            for (let key in config.upgrades) {
+                config.upgrades[key] = false;
+            }
+            // Reset shop button states
+            document.querySelectorAll('.btn-upgrade').forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = btn.innerHTML.replace("PURCHASING", `<span class="cost bg-gray-900 text-${btn.id.includes('fast') || btn.id.includes('shield') || btn.id.includes('warning') ? 'green' : 'yellow'}-300 py-1 px-3 rounded-full text-sm">${config.upgradeCosts[btn.id.replace('upgrade-','')]}</span>`);
+                btn.innerHTML = btn.innerHTML.replace("PURCHASED", `<span class="cost bg-gray-900 text-${btn.id.includes('fast') || btn.id.includes('shield') || btn.id.includes('warning') ? 'green' : 'yellow'}-300 py-1 px-3 rounded-full text-sm">${config.upgradeCosts[btn.id.replace('upgrade-','')]}</span>`);
+            });
+
+
+            startLevel();
+        }
+
+        function startLevel() {
+            gameState = 'racing';
+            levelTimer = 60;
+            shieldUsedThisLevel = false;
+            items.forEach(item => item.element.remove());
+            items = [];
+            
+            levelDisplay.textContent = currentLevel;
+            updateScores();
+            hideModals();
+            lastTimestamp = performance.now();
+            if (currentLevel === 1) requestAnimationFrame(gameLoop); // Only start loop once
+        }
+
+        function openShop() {
+            gameState = 'shop';
+            shopTimer = 15;
+            shopTimerEl.textContent = shopTimer;
+            shopLevelDisplay.textContent = currentLevel;
+            showModal(shopModal);
+            
+            // Update button states based on cost
+            document.querySelectorAll('.btn-upgrade').forEach(btn => {
+                const upgradeId = btn.id.replace('upgrade-', '');
+                if (!config.upgrades[upgradeId]) {
+                    if (vaultScore < config.upgradeCosts[upgradeId]) {
+                        btn.disabled = true;
+                    } else {
+                        btn.disabled = false;
+                    }
+                }
+            });
+        }
+        
+        let shopInterval;
+        function updateShopTimer(deltaTime) {
+            if (gameState !== 'shop') return;
+            
+            shopTimer -= deltaTime;
+            shopTimerEl.textContent = Math.ceil(shopTimer);
+            
+            if (shopTimer <= 0) {
+                currentLevel++;
+                startLevel();
+            }
+        }
+        
+        function buyUpgrade(upgradeId) {
+            const cost = config.upgradeCosts[upgradeId];
+            if (vaultScore >= cost && !config.upgrades[upgradeId]) {
+                vaultScore -= cost;
+                config.upgrades[upgradeId] = true;
+                updateScores();
+                
+                // Update button
+                const btn = document.getElementById(`upgrade-${upgradeId}`);
+                btn.disabled = true;
+                btn.innerHTML = `<span>${btn.firstElementChild.textContent}</span> <span>PURCHASED</span>`;
+                
+                // Re-check other buttons
+                openShop();
+            }
+        }
+
+        function gameOver() {
+            gameState = 'game_over';
+            document.getElementById('final-score').textContent = vaultScore;
+            showModal(gameOverModal);
+        }
+
+       function resumeFromCrash() {
+           hideModals();
+           gameState = 'racing';
+           lastTimestamp = performance.now(); // Reset timestamp to prevent game jump
+       }
+
+        // --- Event Listeners ---
+        
+        // Player Movement (Tap on Mobile)
+        gameArea.addEventListener('touchstart', (e) => {
+            if (gameState !== 'racing') return;
+            e.preventDefault(); // Prevent scrolling/zooming
+            handleGameAreaInteraction(e.touches[0].clientX);
+        }, { passive: false });
+
+        // Player Movement (Click on Desktop)
+        gameArea.addEventListener('click', (e) => {
+            handleGameAreaInteraction(e.clientX);
+        });
+
+        // Player Movement (Keyboard for testing)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') movePlayer('left');
+            if (e.key === 'ArrowRight') movePlayer('right');
+        });
+
+        // Save Button
+        saveButton.addEventListener('click', saveCartToVault);
+
+        // Modal Buttons
+        startGameButton.addEventListener('click', startGame);
+        playAgainButton.addEventListener('click', startGame);
+       continueGameButton.addEventListener('click', resumeFromCrash);
+        
+        // Shop Buttons
+        document.querySelectorAll('.btn-upgrade').forEach(btn => {
+            btn.addEventListener('click', () => {
+                buyUpgrade(btn.id.replace('upgrade-', ''));
+            });
+        });
+        
+        // --- Init ---
+        // Set initial player position
+        const laneCenter = playerLane * 33.33 + 16.66;
+        player.style.left = `calc(${laneCenter}% - 25px)`; // <-- CHANGED from transform
+        updateScores();
+
+    </script>
+</body>
+</html>
+
