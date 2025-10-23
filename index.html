@@ -24,6 +24,8 @@
             overflow: hidden;
             border-left: 2px dashed #2a2a4e;
             border-right: 2px dashed #2a2a4e;
+            /* Establish a stacking context for game elements */
+            z-index: 1;
         }
 
         /* Lanes */
@@ -100,13 +102,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1rem;
-            font-weight: 600;
+            font-size: 1.25rem; /* Default size for number */
+            font-weight: 700; /* Default weight for number */
             border: 4px solid white;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            z-index: 100;
             cursor: pointer;
             transition: background-color 0.2s, transform 0.1s;
+            /* Ensure save button is below modals */
+            z-index: 100;
         }
         #save-button:active {
             transform: scale(0.95);
@@ -115,6 +118,8 @@
             background-color: #555;
             color: #999;
             cursor: not-allowed;
+            font-size: 2.25rem; /* Larger font for number */
+            font-weight: 900;
         }
 
         /* Message Box */
@@ -129,14 +134,23 @@
             border-radius: 12px;
             font-size: 1.5rem;
             font-weight: 700;
-            z-index: 200;
             transition: opacity 0.5s ease-out;
+            /* Ensure message box is below modal overlay but above game */
+            z-index: 200;
         }
 
         /* Modal */
         .modal {
             background: rgba(26, 26, 46, 0.95);
             border-top: 4px solid #00ffff;
+        }
+        
+        /* New rule to fix stacking context */
+        #modal-overlay {
+            /* Force this overlay into its own rendering layer above all game elements */
+            z-index: 300; 
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
         }
         
         .btn-upgrade {
@@ -152,6 +166,26 @@
         .btn-upgrade:disabled .cost {
             display: none;
         }
+        
+        /* Quiz Answer Buttons */
+        .btn-answer {
+            transition: all 0.2s ease;
+            background-color: #3b82f6; /* Blue */
+        }
+        .btn-answer.correct {
+            background-color: #22c55e; /* Green */
+        }
+        .btn-answer.wrong {
+            background-color: #ef4444; /* Red */
+        }
+        .btn-answer:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .btn-answer:not(:disabled):hover {
+            transform: scale(1.03);
+        }
+        
     </style>
 </head>
 <body class="bg-gray-900 text-white overflow-hidden h-screen w-screen">
@@ -210,35 +244,45 @@
         </main>
 
         <!-- SAVE Button -->
-        <button id="save-button">
-            <!-- Cloud Icon -->
-            <svg class="" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
-                <polyline points="16 16 12 12 8 16"></polyline>
-            </svg>
+        <button id="save-button" class="text-2xl font-black tracking-tighter">
+            SAVE
         </button>
 
         <!-- Message Box (for "CRASH!") -->
         <div id="message-box" class="hidden opacity-0"></div>
 
         <!-- Modals Overlay -->
-        <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-150">
+        <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center">
             
             <!-- Start Menu -->
             <div id="start-menu-modal" class="modal text-center p-8 rounded-lg shadow-2xl w-11/12 max-w-sm">
                 <h1 class="text-4xl font-black text-cyan-300 mb-4">Data Vault Racer</h1>
                 <p class="text-lg mb-6">Tap a lane to move your car! Catch <span class="text-cyan-300">Gems</span> and dodge <span class="text-red-500">Corruptors</span>.</p>
-                <p class="text-md mb-8">Press <span class="text-green-400">SAVE</span> to move your <span class="text-yellow-300">CART</span> points to your <span class="text-green-300">VAULT</span>. If you crash, you lose all points in your CART!</p>
+                <p class="text-md mb-8">Press <span class="text-green-400">SAVE</span> to secure your <span class="text-yellow-300">CART</span> points to your <span class="text-green-300">VAULT</span>. If you crash, you lose all <span class="text-red-500">un-secured</span> points in your CART (but not your VAULT)!</p>
                 <button id="start-game-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-4 px-6 rounded-lg text-2xl transform hover:scale-105 transition-transform">Start Game</button>
             </div>
+            
+            <!-- Quiz Modal -->
+            <div id="quiz-modal" class="modal p-6 rounded-lg shadow-2xl w-11/12 max-w-sm hidden">
+                <h2 class="text-3xl font-black text-cyan-300 mb-2">Bonus Quiz!</h2>
+                <p class="text-lg mb-4">Answer correctly to <span class="text-yellow-300">DOUBLE</span> the points you just earned!</p>
+                <div id="quiz-question" class="text-xl font-semibold mb-6">...</div>
+                
+                <div id="quiz-answers" class="space-y-3 mb-6">
+                    <!-- Answer buttons will be dynamically added here -->
+                </div>
+                
+                <div id="quiz-result" class="text-lg font-bold mb-4 h-6"></div>
+                <button id="continue-to-shop-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-3 px-6 rounded-lg text-xl transform hover:scale-105 transition-transform hidden">Continue</Code></button>
+            </div>
+
 
             <!-- Shop Modal -->
             <div id="shop-modal" class="modal p-6 rounded-lg shadow-2xl w-11/12 max-w-sm hidden">
                 <h2 class="text-3xl font-black text-cyan-300 mb-2">Level <span id="shop-level-display">1</span> Complete!</h2>
-                <p class="text-lg mb-4">Spend your <span class="text-green-300">VAULT</span> points!</p>
-                <p class="text-xl mb-4 font-bold">Next level in: <span id="shop-timer">15</span>s</p>
+                <p id="shop-bonus-text" class="text-lg mb-6">Quick Upgrades! Get ready...</p>
                 
-                <div class="space-y-3">
+                <div class="space-y-3 mb-8">
                     <!-- Speed Upgrades -->
                     <h3 class="font-bold text-yellow-300 uppercase">Speed Upgrades</h3>
                     <button id="upgrade-fastEngine" class="btn-upgrade w-full bg-yellow-500 text-gray-900 font-bold p-3 rounded-lg flex justify-between items-center">
@@ -273,6 +317,7 @@
                         <span class="cost bg-gray-900 text-green-300 py-1 px-3 rounded-full text-sm">800</span>
                     </button>
                 </div>
+                <button id="continue-to-next-level-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-4 px-6 rounded-lg text-2xl transform hover:scale-105 transition-transform">Start Next Level</button>
             </div>
             
             <!-- Game Over Modal -->
@@ -312,6 +357,7 @@
         // Modals
         const modalOverlay = document.getElementById('modal-overlay');
         const startMenuModal = document.getElementById('start-menu-modal');
+        const quizModal = document.getElementById('quiz-modal');
         const shopModal = document.getElementById('shop-modal');
         const gameOverModal = document.getElementById('game-over-modal');
         const crashModal = document.getElementById('crash-modal');
@@ -320,8 +366,14 @@
         const startGameButton = document.getElementById('start-game-button');
         const playAgainButton = document.getElementById('play-again-button');
         const continueGameButton = document.getElementById('continue-game-button');
-        const shopTimerEl = document.getElementById('shop-timer');
+        const continueToNextLevelButton = document.getElementById('continue-to-next-level-button');
         const shopLevelDisplay = document.getElementById('shop-level-display');
+        
+        // Quiz Elements
+        const quizQuestionEl = document.getElementById('quiz-question');
+        const quizAnswersEl = document.getElementById('quiz-answers');
+        const quizResultEl = document.getElementById('quiz-result');
+        const continueToShopButton = document.getElementById('continue-to-shop-button');
         
         // Warning Arrow
         const warningArrow = document.getElementById('warning-arrow');
@@ -329,24 +381,24 @@
         // --- Game State ---
         let vaultScore = 0;
         let cartScore = 0;
+        let pointsThisLevel = 0; // New: Track points *per level* for quiz bonus
         let currentLevel = 1;
         const maxLevels = 3;
         let levelTimer = 30; // Default, will be set by config
-        let shopTimer = 15; // Default, will be set by config
         let playerLane = 1; // 0 = left, 1 = center, 2 = right
         let items = []; // { id, element, type, lane, y, warning }
         let nextItemId = 0;
         let saveCooldown = 0; // in seconds
         let shieldUsedThisLevel = false;
-        let gameState = 'start_menu'; // 'start_menu', 'racing', 'shop', 'game_over', 'paused_crash'
+        let gameState = 'start_menu'; // 'start_menu', 'racing', 'quiz', 'shop', 'game_over', 'paused_crash'
         let lastTimestamp = 0;
         let spawnTimer = 0;
         let systemCrashTimer = 0; // Timer for random system crash
+        let currentQuizQuestion = null;
 
         // --- Game Config (Easy to Customize) ---
         const config = {
             levelDuration: 30,      // How long each level lasts in seconds
-            shopDuration: 15,         // How long the shop is open in seconds
             
             baseItemSpeed: 350,       // Base speed of falling items (pixels/sec)
             baseSpawnRate: 0.9,       // Base time between spawns (seconds)
@@ -376,7 +428,54 @@
                 shield: 400,
                 warningSystem: 600,
                 redundantSystem: 800 // Cost for new upgrade
-            }
+            },
+            
+            // --- QUIZ QUESTIONS ---
+            // Add your questions from Google Forms here
+            // `correctIndex` is the 0-based index of the correct answer
+            quizQuestions: [
+                {
+                    question: "What does 'RPO' (Recovery Point Objective) measure?",
+                    answers: [
+                        "How long it takes to recover",
+                        "How much data you can afford to lose",
+                        "The number of recovery points",
+                        "The objective of the recovery"
+                    ],
+                    correctIndex: 1
+                },
+                {
+                    question: "What does 'RTO' (Recovery Time Objective) measure?",
+                    answers: [
+                        "The time it takes to repair a system",
+                        "The target time to recover from a disaster",
+                        "The total number of recovery options",
+                        "The time of the recovery test"
+                    ],
+                    correctIndex: 1
+                },
+                {
+                    question: "A backup that copies *only* the data that has changed since the last *full* backup is called:",
+                    answers: [
+                        "A differential backup",
+                        "An incremental backup",
+                        "A full backup",
+                        "A snapshot"
+                    ],
+                    correctIndex: 0
+                },
+                {
+                    question: "A backup that copies *only* the data that has changed since the last backup *of any kind* is called:",
+                    answers: [
+                        "A differential backup",
+                        "An incremental backup",
+                        "A partial backup",
+                        "A change log"
+                    ],
+                    correctIndex: 1
+                }
+            ]
+            
         };
         // ------------------------------------
 
@@ -390,10 +489,8 @@
 
             if (gameState === 'racing') {
                 updateRacing(deltaTime);
-            } else if (gameState === 'shop') {
-                updateShopTimer(deltaTime);
-            }
-
+            } 
+            
             requestAnimationFrame(gameLoop);
         }
 
@@ -414,9 +511,14 @@
             if (saveCooldown > 0) {
                 saveCooldown -= deltaTime;
                 saveButton.textContent = Math.ceil(saveCooldown);
+                // Style for number
+                saveButton.classList.remove('text-2xl', 'font-black', 'tracking-tighter');
+
                 if (saveCooldown <= 0) {
                     saveButton.disabled = false;
-                    saveButton.innerHTML = `<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path><polyline points="16 16 12 12 8 16"></polyline></svg>`;
+                    saveButton.innerHTML = 'SAVE';
+                    // Style for "SAVE"
+                    saveButton.classList.add('text-2xl', 'font-black', 'tracking-tighter');
                 }
             }
 
@@ -424,7 +526,8 @@
             if (levelTimer <= 0) {
                 timerDisplay.textContent = 0;
                 if (currentLevel < maxLevels) {
-                    openShop();
+                    // Go to Quiz first!
+                    openQuiz();
                 } else {
                     gameOver();
                 }
@@ -504,7 +607,9 @@
         }
 
         function collectGem(item) {
-            cartScore += config.upgrades.biggerScoop ? 20 : config.gemValue;
+            const points = config.upgrades.biggerScoop ? 20 : config.gemValue;
+            cartScore += points;
+            pointsThisLevel += points; // Add to this level's total
             updateScores();
         }
         
@@ -535,6 +640,8 @@
             // --- No protection! System Crash! ---
             const lostScore = cartScore;
             cartScore = 0;
+            // Also subtract from pointsThisLevel, since they were lost
+            pointsThisLevel = Math.max(0, pointsThisLevel - lostScore);
             updateScores();
             
             gameState = 'paused_crash'; // Pause the game
@@ -554,6 +661,8 @@
             } else {
                const lostScore = cartScore; // Store the lost score
                cartScore = 0;
+               // Also subtract from pointsThisLevel
+               pointsThisLevel = Math.max(0, pointsThisLevel - lostScore);
                updateScores();
                
                gameState = 'paused_crash'; // Pause the game
@@ -630,7 +739,9 @@
 
         function saveCartToVault() {
             if (saveCooldown > 0) return;
-
+            
+            // Points are already added to pointsThisLevel when collected
+            // Only move from cart to vault
             vaultScore += cartScore;
             cartScore = 0;
             updateScores();
@@ -638,6 +749,7 @@
             saveCooldown = config.upgrades.fastSave ? 1.5 : config.saveCooldownTime;
             saveButton.disabled = true;
             saveButton.textContent = Math.ceil(saveCooldown);
+            saveButton.classList.remove('text-2xl', 'font-black', 'tracking-tighter');
         }
         
         function showMessage(text, color) {
@@ -654,7 +766,7 @@
         
         function showModal(modalElement) {
             modalOverlay.classList.remove('hidden');
-           [startMenuModal, shopModal, gameOverModal, crashModal].forEach(m => m.classList.add('hidden'));
+           [startMenuModal, quizModal, shopModal, gameOverModal, crashModal].forEach(m => m.classList.add('hidden'));
             modalElement.classList.remove('hidden');
         }
 
@@ -710,6 +822,7 @@
             levelTimer = config.levelDuration;
             timerDisplay.textContent = levelTimer;
             shieldUsedThisLevel = false;
+            pointsThisLevel = 0; // Reset per-level point tracker
             items.forEach(item => item.element.remove());
             items = [];
             
@@ -721,12 +834,63 @@
             lastTimestamp = performance.now();
             if (currentLevel === 1) requestAnimationFrame(gameLoop); // Only start loop once
         }
+        
+        // --- New Quiz Functions ---
+        
+        function openQuiz() {
+            gameState = 'quiz';
+            
+            // Select a random question for this level
+            // Filter out questions we've already used (if we add more)
+            currentQuizQuestion = config.quizQuestions[Math.floor(Math.random() * config.quizQuestions.length)];
+            
+            // Populate Quiz Modal
+            quizQuestionEl.textContent = currentQuizQuestion.question;
+            quizAnswersEl.innerHTML = ''; // Clear old answers
+            quizResultEl.textContent = '';
+            continueToShopButton.classList.add('hidden');
+            
+            currentQuizQuestion.answers.forEach((answer, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-answer w-full text-white font-bold p-3 rounded-lg text-left';
+                btn.textContent = answer;
+                btn.onclick = () => checkQuizAnswer(index, btn);
+                quizAnswersEl.appendChild(btn);
+            });
+            
+            showModal(quizModal);
+        }
+        
+        function checkQuizAnswer(selectedIndex, selectedButton) {
+            // Disable all buttons
+            quizAnswersEl.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            
+            const correct = selectedIndex === currentQuizQuestion.correctIndex;
+            
+            if (correct) {
+                selectedButton.classList.add('correct');
+                quizResultEl.textContent = `Correct! +${pointsThisLevel} Bonus!`;
+                quizResultEl.className = 'text-lg font-bold mb-4 h-6 text-green-400';
+                
+                // Apply bonus: add pointsThisLevel again to the vault
+                vaultScore += pointsThisLevel;
+                updateScores();
+            } else {
+                selectedButton.classList.add('wrong');
+                // Highlight correct answer
+                quizAnswersEl.children[currentQuizQuestion.correctIndex].classList.add('correct');
+                quizResultEl.textContent = 'Incorrect! No bonus.';
+                quizResultEl.className = 'text-lg font-bold mb-4 h-6 text-red-400';
+            }
+            
+            // Show continue button
+            continueToShopButton.classList.remove('hidden');
+        }
 
-        function openShop() {
+        function openShop(bonusText = "Quick Upgrades! Get ready...") {
             gameState = 'shop';
-            shopTimer = config.shopDuration;
-            shopTimerEl.textContent = shopTimer;
             shopLevelDisplay.textContent = currentLevel;
+            document.getElementById('shop-bonus-text').textContent = bonusText;
             showModal(shopModal);
             
             // Update button states based on cost
@@ -740,18 +904,6 @@
                     }
                 }
             });
-        }
-        
-        function updateShopTimer(deltaTime) {
-            if (gameState !== 'shop') return;
-            
-            shopTimer -= deltaTime;
-            shopTimerEl.textContent = Math.ceil(shopTimer);
-            
-            if (shopTimer <= 0) {
-                currentLevel++;
-                startLevel();
-            }
         }
         
         function buyUpgrade(upgradeId) {
@@ -815,6 +967,17 @@
         startGameButton.addEventListener('click', startGame);
         playAgainButton.addEventListener('click', startGame);
         continueGameButton.addEventListener('click', resumeFromCrash);
+        continueToNextLevelButton.addEventListener('click', () => {
+            currentLevel++;
+            startLevel();
+        });
+        
+        // New Quiz Button
+        continueToShopButton.addEventListener('click', () => {
+            // Pass the quiz result text to the shop
+            const bonusMessage = quizResultEl.textContent || "Quick Upgrades! Get ready...";
+            openShop(bonusMessage);
+        });
         
         // Shop Buttons
         document.querySelectorAll('.btn-upgrade').forEach(btn => {
