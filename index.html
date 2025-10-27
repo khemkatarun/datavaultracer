@@ -110,6 +110,7 @@
             transition: background-color 0.2s, transform 0.1s;
             /* Ensure save button is below modals */
             z-index: 100;
+            line-height: 1; /* For "Vault It" */
         }
         #save-button:active {
             transform: scale(0.95);
@@ -163,9 +164,7 @@
             cursor: not-allowed;
             opacity: 0.7;
         }
-        .btn-upgrade:disabled .cost {
-            display: none;
-        }
+        /* REMOVED: .btn-upgrade:disabled .cost { display: none; } */
         
         /* Quiz Answer Buttons */
         .btn-answer {
@@ -227,15 +226,15 @@
             <div id="player">
                 <!-- Simple top-down car -->
                 <svg viewBox="0 0 60 100" fill="#31f7f7" class="w-full h-full">
-                     <path d="M15 10 L45 10 C50 10, 55 15, 55 20 L55 80 C55 95, 45 100, 40 100 L20 100 C15 100, 5 95, 5 80 L5 20 C5 15, 10 10, 15 10 Z" stroke="#FFFFFF" stroke-width="5"/>
-                     <!-- Windshield -->
-                     <rect x="15" y="25" width="30" height="20" fill="#000" rx="5" ry="5" stroke="#FFF" stroke-width="2"/>
-                     <!-- Headlights -->
-                     <rect x="15" y="5" width="10" height="5" fill="#FF0" rx="2" ry="2"/>
-                     <rect x="35" y="5" width="10" height="5" fill="#FF0" rx="2" ry="2"/>
-                     <!-- Taillights -->
-                     <rect x="15" y="90" width="10" height="5" fill="#F00" rx="2" ry="2"/>
-                     <rect x="35" y="90" width="10" height="5" fill="#F00" rx="2" ry="2"/>
+                        <path d="M15 10 L45 10 C50 10, 55 15, 55 20 L55 80 C55 95, 45 100, 40 100 L20 100 C15 100, 5 95, 5 80 L5 20 C5 15, 10 10, 15 10 Z" stroke="#FFFFFF" stroke-width="5"/>
+                        <!-- Windshield -->
+                        <rect x="15" y="25" width="30" height="20" fill="#000" rx="5" ry="5" stroke="#FFF" stroke-width="2"/>
+                        <!-- Headlights -->
+                        <rect x="15" y="5" width="10" height="5" fill="#FF0" rx="2" ry="2"/>
+                        <rect x="35" y="5" width="10" height="5" fill="#FF0" rx="2" ry="2"/>
+                        <!-- Taillights -->
+                        <rect x="15" y="90" width="10" height="5" fill="#F00" rx="2" ry="2"/>
+                        <rect x="35" y="90" width="10" height="5" fill="#F00" rx="2" ry="2"/>
                 </svg>
             </div>
             
@@ -244,8 +243,8 @@
         </main>
 
         <!-- SAVE Button -->
-        <button id="save-button" class="text-2xl font-black tracking-tighter">
-            SAVE
+        <button id="save-button" class="text-xl font-black tracking-tight text-center">
+            Vault It
         </button>
 
         <!-- Message Box (for "CRASH!") -->
@@ -258,7 +257,7 @@
             <div id="start-menu-modal" class="modal text-center p-8 rounded-lg shadow-2xl w-11/12 max-w-sm">
                 <h1 class="text-4xl font-black text-cyan-300 mb-4">Data Vault Racer</h1>
                 <p class="text-lg mb-6">Tap a lane to move your car! Catch <span class="text-cyan-300">Gems</span> and dodge <span class="text-red-500">Corruptors</span>.</p>
-                <p class="text-md mb-8">Press <span class="text-green-400">SAVE</span> to secure your <span class="text-yellow-300">CART</span> points to your <span class="text-green-300">VAULT</span>. If you crash, you lose all <span class="text-red-500">un-secured</span> points in your CART (but not your VAULT)!</p>
+                <p class="text-md mb-8">Press <span class="text-green-400">Vault It</span> to secure your <span class="text-yellow-300">CART</span> points to your <span class="text-green-300">VAULT</span>. If you crash, you lose all <span class="text-red-500">un-secured</span> points in your CART (but not in your vault)!</p>
                 <button id="start-game-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-4 px-6 rounded-lg text-2xl transform hover:scale-105 transition-transform">Start Game</button>
             </div>
             
@@ -273,14 +272,15 @@
                 </div>
                 
                 <div id="quiz-result" class="text-lg font-bold mb-4 h-6"></div>
-                <button id="continue-to-shop-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-3 px-6 rounded-lg text-xl transform hover:scale-105 transition-transform hidden">Continue</Code></button>
+                <button id="continue-to-shop-button" class="w-full bg-cyan-500 text-gray-900 font-bold py-3 px-6 rounded-lg text-xl transform hover:scale-105 transition-transform hidden">Continue</button>
             </div>
 
 
             <!-- Shop Modal -->
             <div id="shop-modal" class="modal p-6 rounded-lg shadow-2xl w-11/12 max-w-sm hidden">
                 <h2 class="text-3xl font-black text-cyan-300 mb-2">Level <span id="shop-level-display">1</span> Complete!</h2>
-                <p id="shop-bonus-text" class="text-lg mb-6">Quick Upgrades! Get ready...</p>
+                <p class="text-lg mb-2 text-gray-300">Use your VAULT points to purchase upgrades.</p>
+                <p id="shop-bonus-text" class="text-lg font-bold text-green-400 mb-6 h-6"></p> <!-- h-6 to reserve space -->
                 
                 <div class="space-y-3 mb-8">
                     <!-- Speed Upgrades -->
@@ -512,13 +512,13 @@
                 saveCooldown -= deltaTime;
                 saveButton.textContent = Math.ceil(saveCooldown);
                 // Style for number
-                saveButton.classList.remove('text-2xl', 'font-black', 'tracking-tighter');
+                saveButton.classList.remove('text-xl', 'font-black', 'tracking-tight');
 
                 if (saveCooldown <= 0) {
                     saveButton.disabled = false;
-                    saveButton.innerHTML = 'SAVE';
-                    // Style for "SAVE"
-                    saveButton.classList.add('text-2xl', 'font-black', 'tracking-tighter');
+                    saveButton.innerHTML = 'Vault It';
+                    // Style for "Vault It"
+                    saveButton.classList.add('text-xl', 'font-black', 'tracking-tight');
                 }
             }
 
@@ -637,6 +637,12 @@
                 return; // Shield saved the cart
             }
             
+            // CHECK FOR EMPTY CART
+            if (cartScore === 0) {
+                showMessage("Well done! Cart was empty.", "green");
+                return; // No penalty
+            }
+            
             // --- No protection! System Crash! ---
             const lostScore = cartScore;
             cartScore = 0;
@@ -659,6 +665,12 @@
                 shieldUsedThisLevel = true;
                 showMessage("SHIELD USED!", "green");
             } else {
+               // CHECK FOR EMPTY CART
+               if (cartScore === 0) {
+                   showMessage("Phew! Cart was empty.", "green");
+                   return; // No penalty
+               }
+               
                const lostScore = cartScore; // Store the lost score
                cartScore = 0;
                // Also subtract from pointsThisLevel
@@ -749,7 +761,7 @@
             saveCooldown = config.upgrades.fastSave ? 1.5 : config.saveCooldownTime;
             saveButton.disabled = true;
             saveButton.textContent = Math.ceil(saveCooldown);
-            saveButton.classList.remove('text-2xl', 'font-black', 'tracking-tighter');
+            saveButton.classList.remove('text-xl', 'font-black', 'tracking-tight');
         }
         
         function showMessage(text, color) {
@@ -788,8 +800,8 @@
             
             // Restore animation duration for gameplay
             setTimeout(() => {
-                 const transitionTime = config.upgrades.fastEngine ? 0.05 : 0.1;
-                 player.style.transition = `left ${transitionTime}s ease-out`;
+                const transitionTime = config.upgrades.fastEngine ? 0.05 : 0.1;
+                player.style.transition = `left ${transitionTime}s ease-out`;
             }, 50);
             
             
@@ -887,10 +899,23 @@
             continueToShopButton.classList.remove('hidden');
         }
 
-        function openShop(bonusText = "Quick Upgrades! Get ready...") {
+        function openShop(bonusText = "") {
             gameState = 'shop';
             shopLevelDisplay.textContent = currentLevel;
-            document.getElementById('shop-bonus-text').textContent = bonusText;
+            
+            // Set bonus text
+            const bonusEl = document.getElementById('shop-bonus-text');
+            if (bonusText.includes("Correct!")) {
+                bonusEl.textContent = bonusText;
+                bonusEl.className = 'text-lg font-bold text-green-400 mb-6 h-6';
+            } else if (bonusText.includes("Incorrect!")) {
+                bonusEl.textContent = bonusText;
+                bonusEl.className = 'text-lg font-bold text-red-400 mb-6 h-6';
+            } else {
+                bonusEl.textContent = ''; // No bonus, just the instruction
+                bonusEl.className = 'text-lg font-bold text-green-400 mb-6 h-6'; // Reset classes
+            }
+
             showModal(shopModal);
             
             // Update button states based on cost
@@ -916,7 +941,7 @@
                 // Update button
                 const btn = document.getElementById(`upgrade-${upgradeId}`);
                 btn.disabled = true;
-                btn.innerHTML = `<span>${btn.firstElementChild.textContent}</span> <span>PURCHASED</span>`;
+                btn.innerHTML = `<span>${btn.firstElementChild.textContent}</span> <span class="text-sm">PURCHASED (${cost})</span>`;
                 
                 // Re-check other buttons' disabled state
                 document.querySelectorAll('.btn-upgrade').forEach(b => {
@@ -975,7 +1000,7 @@
         // New Quiz Button
         continueToShopButton.addEventListener('click', () => {
             // Pass the quiz result text to the shop
-            const bonusMessage = quizResultEl.textContent || "Quick Upgrades! Get ready...";
+            const bonusMessage = quizResultEl.textContent;
             openShop(bonusMessage);
         });
         
@@ -996,4 +1021,5 @@
     </script>
 </body>
 </html>
+
 
